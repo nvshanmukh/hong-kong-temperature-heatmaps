@@ -1,0 +1,57 @@
+body {
+  margin: 24px;
+  font-family: Arial, sans-serif;
+  color: #222;
+  background: white;
+}
+
+main {
+  max-width: 1250px;
+  margin: 0 auto;
+}
+
+section {
+  margin-top: 32px;
+}
+
+.chart-container {
+  overflow-x: auto;
+}
+
+.chart-container svg {
+  display: block;
+}
+
+.axis text,
+.legend text {
+  font-size: 10px;
+}
+
+.temperature-cell {
+  stroke: none;
+}
+
+.daily-line {
+  fill: none;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 10;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid #ddd;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.maximum-key {
+  color: #1a9850;
+}
+
+.minimum-key {
+  color: #337f91;
+  margin-left: 20px;
+}

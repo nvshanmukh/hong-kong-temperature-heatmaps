@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hong Kong Temperature Heatmaps</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>Hong Kong Temperature</h1>
+
+    <label for="temperature-metric">Cell color represents:</label>
+    <select id="temperature-metric">
+      <option value="maximum">Monthly maximum temperature</option>
+      <option value="minimum">Monthly minimum temperature</option>
+    </select>
+
+    <p id="status" role="status">Loading temperature data…</p>
+
+    <section>
+      <h2>Level 1: Monthly temperatures</h2>
+      <div id="monthly-chart" class="chart-container"></div>
+    </section>
+
+    <section>
+      <h2>Level 2: Daily temperatures within each month</h2>
+
+      <p class="line-key">
+        <span class="maximum-key">Green: daily maximum</span>
+        <span class="minimum-key">Light blue: daily minimum</span>
+      </p>
+
+      <div id="daily-chart" class="chart-container"></div>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
