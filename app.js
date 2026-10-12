@@ -121,3 +121,158 @@ function summarizeMonths(dailyRecords) {
       first.month - second.month
   );
 }
+
+function createTemperatureColorScale() {
+  const coldToHotColors = [...d3.schemeSpectral[11]].reverse();
+
+  return d3.scaleQuantize()
+    .domain(CONFIG.temperatureDomain)
+    .range(coldToHotColors);
+}
+
+const temperatureColor = createTemperatureColorScale();
+
+function createMatrixFrame(containerSelector, years, layout) {
+  const months = d3.range(1, 13);
+
+  const stepX = layout.cellWidth + layout.gapX;
+  const stepY = layout.cellHeight + layout.gapY;
+
+  const plotWidth = years.length * stepX;
+  const plotHeight = months.length * stepY;
+
+  const xYear = d3.scaleBand()
+    .domain(years)
+    .range([0, plotWidth])
+    .paddingInner(layout.gapX / stepX)
+    .paddingOuter(layout.gapX / (2 * stepX));
+
+  const yMonth = d3.scaleBand()
+    .domain(months)
+    .range([0, plotHeight])
+    .paddingInner(layout.gapY / stepY)
+    .paddingOuter(layout.gapY / (2 * stepY));
+
+  const margin = CONFIG.margin;
+
+  const container = d3.select(containerSelector);
+  container.selectAll("*").remove();
+
+  const svg = container.append("svg")
+    .attr("width", plotWidth + margin.left + margin.right)
+    .attr("height", plotHeight + margin.top + margin.bottom);
+
+  const plot = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  plot.append("g")
+    .attr("class", "axis")
+    .call(d3.axisTop(xYear).tickSizeOuter(0));
+
+  plot.append("g")
+    .attr("class", "axis")
+    .call(
+      d3.axisLeft(yMonth)
+        .tickFormat(month => MONTH_NAMES[month - 1])
+        .tickSizeOuter(0)
+    );
+
+  return {
+    plot,
+    xYear,
+    yMonth,
+    plotWidth,
+    cellWidth: xYear.bandwidth(),
+    cellHeight: yMonth.bandwidth()
+  };
+}
+
+function drawTemperatureLegend(frame) {
+  const settings = CONFIG.legend;
+  const colors = temperatureColor.range();
+
+  const legend = frame.plot.append("g")
+    .attr("class", "legend")
+    .attr(
+      "transform",
+      `translate(${frame.plotWidth + settings.offsetX},10)`
+    );
+
+  const legendPosition = d3.scaleLinear()
+    .domain(CONFIG.temperatureDomain)
+    .range([0, settings.height]);
+
+  legend.selectAll("rect")
+    .data(colors)
+    .join("rect")
+    .attr("x", 0)
+    .attr("y", color => {
+      const [lower] = temperatureColor.invertExtent(color);
+      return legendPosition(lower);
+    })
+    .attr("width", settings.width)
+    .attr("height", color => {
+      const [lower, upper] = temperatureColor.invertExtent(color);
+      return legendPosition(upper) - legendPosition(lower);
+    })
+    .attr("fill", color => color);
+
+  legend.append("g")
+    .attr("transform", `translate(${settings.width},0)`)
+    .call(
+      d3.axisRight(legendPosition)
+        .tickValues([0, 10, 20, 30, 40])
+        .tickFormat(value => `${value}°C`)
+        .tickSize(3)
+    );
+}
+
+const tooltip = d3.select("#tooltip");
+
+function showMonthlyTooltip(event, record) {
+  const expectedDays = new Date(
+    Date.UTC(record.year, record.month, 0)
+  ).getUTCDate();
+
+  const coverage =
+    record.days.length < expectedDays
+      ? `<br>Available days: ${record.days.length}/${expectedDays}`
+      : "";
+
+  tooltip
+    .property("hidden", false)
+    .html(`
+      <strong>${MONTH_NAMES[record.month - 1]} ${record.year}</strong>
+      <br>Maximum: ${record.maximum}°C
+      <br>Minimum: ${record.minimum}°C
+      ${coverage}
+    `);
+
+  moveTooltip(event);
+}
+
+function moveTooltip(event) {
+  const bounds = tooltip.node().getBoundingClientRect();
+  const offset = CONFIG.tooltipOffset;
+
+  // Keep the tooltip inside the browser window.
+  const left = Math.max(
+    0,
+    Math.min(
+      event.clientX + offset,
+      window.innerWidth - bounds.width - offset
+    )
+  );
+
+  const top = Math.max(
+    0,
+    Math.min(
+      event.clientY + offset,
+      window.innerHeight - bounds.height - offset
+    )
+  );
+
+  tooltip
+    .style("left", `${left}px`)
+    .style("top", `${top}px`);
+}
