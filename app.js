@@ -1,9 +1,8 @@
 const CONFIG = {
   dataPath: "./data/temperature_daily.csv",
 
-  temperatureDomain: [0, 40],
+  temperatureDomain: [0, 39],
 
-  recentYearCount: 10,
 
   margin: {
     top: 30,
@@ -19,13 +18,6 @@ const CONFIG = {
     gapY: 7
   },
 
-  daily: {
-    cellWidth: 78,
-    cellHeight: 58,
-    gapX: 19,
-    gapY: 14,
-    linePadding: 3
-  },
 
   legend: {
     width: 18,
@@ -33,8 +25,7 @@ const CONFIG = {
     offsetX: 20
   },
 
-  maximumLineColor: "#1a9850",
-  minimumLineColor: "#a6dbe8",
+
 
   tooltipOffset: 12
 };
@@ -221,7 +212,7 @@ function drawTemperatureLegend(frame) {
     .attr("transform", `translate(${settings.width},0)`)
     .call(
       d3.axisRight(legendPosition)
-        .tickValues([0, 10, 20, 30, 40])
+        .tickValues([0, 10, 20, 30, 39])
         .tickFormat(value => `${value}°C`)
         .tickSize(3)
     );
@@ -276,3 +267,75 @@ function moveTooltip(event) {
     .style("left", `${left}px`)
     .style("top", `${top}px`);
 }
+
+function attachMonthlyTooltip(selection) {
+  selection
+    .on("mouseenter", showMonthlyTooltip)
+    .on("mousemove", moveTooltip)
+    .on("mouseleave", () => {
+      tooltip.property("hidden", true);
+    });
+}
+
+function renderMonthlyHeatmap(monthlyRecords) {
+  const years = [...new Set(
+    monthlyRecords.map(record => record.year)
+  )].sort(d3.ascending);
+
+  const frame = createMatrixFrame(
+    "#monthly-chart",
+    years,
+    CONFIG.monthly
+  );
+
+  const cells = frame.plot.append("g")
+    .selectAll("rect")
+    .data(monthlyRecords, record => record.key)
+    .join("rect")
+    .attr("class", "temperature-cell")
+    .attr("x", record => frame.xYear(record.year))
+    .attr("y", record => frame.yMonth(record.month))
+    .attr("width", frame.cellWidth)
+    .attr("height", frame.cellHeight)
+    .attr("fill", record =>
+      temperatureColor(record[state.metric])
+    );
+
+  attachMonthlyTooltip(cells);
+  drawTemperatureLegend(frame);
+}
+
+
+async function initializeVisualization() {
+  const status = document.querySelector("#status");
+
+  try {
+    const dailyRecords = await loadDailyTemperatures();
+    const monthlyRecords = summarizeMonths(dailyRecords);
+
+    function renderCharts() {
+      tooltip.property("hidden", true);
+
+      renderMonthlyHeatmap(monthlyRecords);
+      
+    }
+
+    d3.select("#temperature-metric")
+      .on("change", event => {
+        state.metric = event.target.value;
+        renderCharts();
+      });
+
+    renderCharts();
+
+    status.textContent =
+      "Temperatures are shown in °C. Missing months are blank.";
+  } catch (error) {
+    console.error(error);
+
+    status.textContent =
+      `Unable to load the visualization: ${error.message}`;
+  }
+}
+
+initializeVisualization();
