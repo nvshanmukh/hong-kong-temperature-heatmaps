@@ -3,6 +3,7 @@ const CONFIG = {
 
   temperatureDomain: [0, 39],
 
+  recentYearCount: 10,
 
   margin: {
     top: 30,
@@ -18,6 +19,13 @@ const CONFIG = {
     gapY: 7
   },
 
+  daily: {
+    cellWidth: 78,
+    cellHeight: 58,
+    gapX: 19,
+    gapY: 14,
+    linePadding: 3
+  },
 
   legend: {
     width: 18,
@@ -25,7 +33,8 @@ const CONFIG = {
     offsetX: 20
   },
 
-
+  maximumLineColor: "#1a9850",
+  minimumLineColor: "#a6dbe8",
 
   tooltipOffset: 12
 };
@@ -212,7 +221,7 @@ function drawTemperatureLegend(frame) {
     .attr("transform", `translate(${settings.width},0)`)
     .call(
       d3.axisRight(legendPosition)
-        .tickValues([0, 10, 20, 30, 39])
+        .tickValues([0, 10, 20, 30, 40])
         .tickFormat(value => `${value}°C`)
         .tickSize(3)
     );
@@ -246,7 +255,6 @@ function moveTooltip(event) {
   const bounds = tooltip.node().getBoundingClientRect();
   const offset = CONFIG.tooltipOffset;
 
-  // Keep the tooltip inside the browser window.
   const left = Math.max(
     0,
     Math.min(
@@ -305,6 +313,106 @@ function renderMonthlyHeatmap(monthlyRecords) {
   drawTemperatureLegend(frame);
 }
 
+function drawDailyLines(cellGroups, frame) {
+  const padding = CONFIG.daily.linePadding;
+
+  const dayPosition = d3.scaleLinear()
+    .domain([1, 31])
+    .range([padding, frame.cellWidth - padding]);
+
+  const temperaturePosition = d3.scaleLinear()
+    .domain(CONFIG.temperatureDomain)
+    .range([frame.cellHeight - padding, padding]);
+
+  const seriesDefinitions = [
+    {
+      field: "maximum",
+      color: CONFIG.maximumLineColor
+    },
+    {
+      field: "minimum",
+      color: CONFIG.minimumLineColor
+    }
+  ];
+
+  cellGroups.each(function(monthRecord) {
+    const cell = d3.select(this);
+
+    const daysInMonth = new Date(
+      Date.UTC(monthRecord.year, monthRecord.month, 0)
+    ).getUTCDate();
+
+    const recordsByDay = new Map(
+      monthRecord.days.map(record => [record.day, record])
+    );
+
+    // Explicit missing days allow the line to break at data gaps.
+    const completeDaySequence = d3.range(1, daysInMonth + 1)
+      .map(day => recordsByDay.get(day) ?? {
+        day,
+        maximum: null,
+        minimum: null
+      });
+
+    for (const series of seriesDefinitions) {
+      const createLine = d3.line()
+        .defined(record => Number.isFinite(record[series.field]))
+        .x(record => dayPosition(record.day))
+        .y(record => temperaturePosition(record[series.field]))
+        .curve(d3.curveLinear);
+
+      cell.append("path")
+        .datum(completeDaySequence)
+        .attr("class", "daily-line")
+        .attr("stroke", series.color)
+        .attr("d", createLine);
+    }
+  });
+}
+
+function renderDailyHeatmap(monthlyRecords) {
+  const latestYear = d3.max(
+    monthlyRecords,
+    record => record.year
+  );
+
+  const firstYear = latestYear - CONFIG.recentYearCount + 1;
+  const years = d3.range(firstYear, latestYear + 1);
+
+  const recentMonths = monthlyRecords.filter(
+    record => record.year >= firstYear
+  );
+
+  const frame = createMatrixFrame(
+    "#daily-chart",
+    years,
+    CONFIG.daily
+  );
+
+  const cellGroups = frame.plot.append("g")
+    .selectAll("g.month-cell")
+    .data(recentMonths, record => record.key)
+    .join("g")
+    .attr("class", "month-cell")
+    .attr("transform", record =>
+      `translate(
+        ${frame.xYear(record.year)},
+        ${frame.yMonth(record.month)}
+      )`
+    );
+
+  const backgrounds = cellGroups.append("rect")
+    .attr("class", "temperature-cell")
+    .attr("width", frame.cellWidth)
+    .attr("height", frame.cellHeight)
+    .attr("fill", record =>
+      temperatureColor(record[state.metric])
+    );
+
+  attachMonthlyTooltip(backgrounds);
+  drawDailyLines(cellGroups, frame);
+  drawTemperatureLegend(frame);
+}
 
 async function initializeVisualization() {
   const status = document.querySelector("#status");
@@ -317,7 +425,7 @@ async function initializeVisualization() {
       tooltip.property("hidden", true);
 
       renderMonthlyHeatmap(monthlyRecords);
-      
+      renderDailyHeatmap(monthlyRecords);
     }
 
     d3.select("#temperature-metric")
