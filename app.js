@@ -221,7 +221,7 @@ function drawTemperatureLegend(frame) {
     .attr("transform", `translate(${settings.width},0)`)
     .call(
       d3.axisRight(legendPosition)
-        .tickValues([0, 10, 20, 30, 40])
+        .tickValues([0, 10, 20, 30, 39])
         .tickFormat(value => `${value}°C`)
         .tickSize(3)
     );
